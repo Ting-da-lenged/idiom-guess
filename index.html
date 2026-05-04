@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>你画我猜 - 隐藏解锁版</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+margin:0;
+min-height:100vh;
+font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+background:#f5f7fb;
+}
+
+/* 隐藏式爱心按钮 */
+.secret-heart {
+position: fixed;
+top: 14px;
+right: 14px;
+font-size: 16px;
+opacity: 0.22;
+cursor: pointer;
+user-select: none;
+transition: opacity 0.3s ease, transform 0.2s ease;
+}
+
+.secret-heart:hover {
+opacity: 0.65;
+transform: scale(1.1);
+}
+
+.app {
+min-height:100vh;
+padding:24px;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+.main-card {
+width:100%;
+max-width:1180px;
+min-height:680px;
+background:#fff;
+border-radius:28px;
+box-shadow:0 10px 32px rgba(0,0,0,0.1);
+padding:28px;
+display:grid;
+grid-template-columns:1.45fr 0.9fr;
+gap:28px;
+}
+
+.image-area {
+background:#fafafa;
+border:2px solid #eee;
+border-radius:24px;
+padding:18px;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+.image-area img {
+width:100%;
+height:100%;
+max-height:600px;
+object-fit:contain;
+border-radius:18px;
+cursor:pointer;
+}
+
+.side-panel {
+border-radius:24px;
+background:#f7f9ff;
+padding:28px;
+display:flex;
+flex-direction:column;
+justify-content:space-between;
+}
+
+.title {
+font-size:36px;
+font-weight:800;
+margin:0 0 12px;
+}
+
+.subtitle {
+font-size:18px;
+color:#666;
+margin-bottom:24px;
+}
+
+.counter {
+display:inline-block;
+padding:8px 16px;
+background:#eaf2ff;
+color:#1677ff;
+border-radius:999px;
+font-size:18px;
+font-weight:600;
+margin-bottom:24px;
+}
+
+.guess-area {
+margin-top:18px;
+padding:24px;
+border-radius:22px;
+background:white;
+border:2px solid #e4ecff;
+}
+
+.guess-input {
+width:100%;
+border:2px solid #d8e4ff;
+border-radius:14px;
+padding:16px;
+font-size:32px;
+text-align:center;
+outline:none;
+letter-spacing:8px;
+}
+
+.guess-input.correct {
+border-color:#16a34a;
+background:#ecfdf5;
+}
+
+.guess-input.wrong {
+border-color:#dc2626;
+background:#fef2f2;
+}
+
+.result {
+margin-top:12px;
+min-height:30px;
+font-size:22px;
+font-weight:800;
+text-align:center;
+}
+
+.result.correct { color:#16a34a; }
+.result.wrong { color:#dc2626; }
+
+.tip {
+margin-top:14px;
+font-size:16px;
+color:#888;
+text-align:center;
+}
+
+.buttons {
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:14px;
+margin-top:28px;
+}
+
+button {
+border:none;
+border-radius:16px;
+padding:16px 20px;
+font-size:20px;
+font-weight:700;
+cursor:pointer;
+background:#1677ff;
+color:white;
+}
+
+button:disabled {
+background:#ccc;
+cursor:not-allowed;
+}
+
+@media (max-width:850px){
+.main-card{grid-template-columns:1fr;}
+}
+</style>
+</head>
+
+<body>
+
+<div class="secret-heart" onclick="showSecretImage()">♡</div>
+
+<div class="app">
+<div class="main-card">
+
+<div class="image-area">
+<img id="idiomImage" onclick="showAnswer()" />
+</div>
+
+<div class="side-panel">
+
+<div>
+<h1 class="title">你画我猜</h1>
+<div class="subtitle">输入4字自动检测；点击图片直接公布答案</div>
+
+<div class="counter" id="counter"></div>
+
+<div class="guess-area">
+<input id="guessInput" class="guess-input"
+placeholder="请输入4字成语"
+maxlength="4"
+oninput="autoCheck()" />
+<div id="result" class="result"></div>
+</div>
+
+<div class="tip">提示：图片可点击公布答案</div>
+
+</div>
+
+<div class="buttons">
+<button id="prevBtn" onclick="prevImage()">上一张</button>
+<button id="nextBtn" onclick="nextImage()">下一张</button>
+</div>
+
+</div>
+</div>
+</div>
+
+<script>
+
+/*
+第 1-21 张是默认可见题目。
+点击右上角隐藏 ♡ 后，会出现第 22 张彩蛋题：image22_一路相伴.png。
+答对“一路相伴”后，解锁第 23、24 张。
+最终流程会以第 24 张结尾。
+*/
+
+const normalImages=[
+"image1_百里挑一.png",
+"image2_雕虫小计.png",
+"image3_虎头蛇尾.png",
+"image4_井上添花.png",
+"image5_滥竽充数.png",
+"image6_五光十色.png",
+"image7_五花八门.png",
+"image8_扬眉吐气.png",
+"image9_鱼目混珠.png",
+"image10_无懈可击.png",
+"image11_机不可失.png",
+"image12_一心一意.png",
+"image13_口是心非.png",
+"image14_顺水推舟.png",
+"image15_天马行空.png",
+"image16_顺理成章.png",
+"image17_争先恐后.png",
+"image18_左右为难.png",
+"image19_大展宏图.png",
+"image20_财源广进.png",
+"image21_鸿运当头.png"
+];
+
+const hiddenImages=[
+"image23_光芒万丈.png",
+"image24_星途璀璨.png"
+];
+
+const specialImage="image22_一路相伴.png";
+
+let images=[...normalImages];
+let currentIndex=0;
+let isSecretMode=false;
+let isUnlocked=false;
+
+function getAnswerFromFilename(filename){
+const nameWithoutExt=filename.substring(0,filename.lastIndexOf("."));
+return nameWithoutExt.split("_")[1];
+}
+
+function normalize(text){
+return text.replace(/\s/g,"");
+}
+
+function resetInput(){
+const input=document.getElementById("guessInput");
+input.value="";
+input.classList.remove("correct","wrong");
+document.getElementById("result").textContent="";
+document.getElementById("result").className="result";
+}
+
+function autoCheck(){
+
+const input=document.getElementById("guessInput");
+const value=input.value.trim();
+
+if(value.length<4)return;
+
+const filename=isSecretMode?specialImage:images[currentIndex];
+const correct=getAnswerFromFilename(filename);
+const result=document.getElementById("result");
+
+if(normalize(value)===normalize(correct)){
+
+input.classList.remove("wrong");
+input.classList.add("correct");
+
+if(isSecretMode && !isUnlocked){
+unlockHiddenImages();
+result.textContent="恭喜答对，2张隐藏图片解锁！";
+}else{
+result.textContent="答对了！";
+}
+
+result.className="result correct";
+
+}else{
+
+result.textContent="不对哦";
+result.className="result wrong";
+
+input.classList.remove("correct");
+input.classList.add("wrong");
+
+}
+
+}
+
+function unlockHiddenImages(){
+isUnlocked=true;
+images=[...normalImages, ...hiddenImages];
+
+// 保持在彩蛋图片，不自动跳转
+// 把当前位置设置为最后一张普通题，这样玩家点击“下一张”后会进入第 23 张隐藏图
+currentIndex=normalImages.length-1;
+
+document.getElementById("nextBtn").disabled=false;
+document.getElementById("prevBtn").disabled=false;
+document.getElementById("counter").textContent="第 22 张 / 共 24 张";
+}
+
+function showAnswer(){
+
+const filename=isSecretMode?specialImage:images[currentIndex];
+const answer=getAnswerFromFilename(filename);
+
+document.getElementById("guessInput").value=answer;
+document.getElementById("guessInput").classList.remove("wrong");
+document.getElementById("guessInput").classList.add("correct");
+
+document.getElementById("result").textContent="正确答案";
+document.getElementById("result").className="result correct";
+
+}
+
+function showSecretImage(){
+
+isSecretMode=true;
+
+document.getElementById("idiomImage").src="images/"+specialImage;
+
+resetInput();
+
+document.getElementById("result").textContent="✨";
+document.getElementById("counter").textContent="第 22 张 / 共 24 张";
+
+document.getElementById("prevBtn").disabled=false;
+document.getElementById("nextBtn").disabled=!isUnlocked;
+}
+
+function updatePage(){
+
+isSecretMode=false;
+
+const filename=images[currentIndex];
+
+document.getElementById("idiomImage").src="images/"+filename;
+
+resetInput();
+
+let displayNumber = currentIndex + 1;
+let totalNumber = isUnlocked ? 24 : 21;
+
+// 解锁后，images 数组中没有把第 22 张彩蛋题放进去，
+// 所以第 23、24 张隐藏图需要显示真实编号：23、24
+if (isUnlocked && currentIndex >= normalImages.length) {
+  displayNumber = currentIndex + 2;
+}
+
+document.getElementById("counter").textContent =
+`第 ${displayNumber} 张 / 共 ${totalNumber} 张`;
+
+document.getElementById("prevBtn").disabled=currentIndex===0;
+document.getElementById("nextBtn").disabled=currentIndex===images.length-1;
+
+}
+
+function prevImage(){
+if(currentIndex>0){currentIndex--;updatePage();}
+}
+
+function nextImage(){
+if(currentIndex<images.length-1){currentIndex++;updatePage();}
+}
+
+updatePage();
+
+</script>
+
+</body>
+</html>
