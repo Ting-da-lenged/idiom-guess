@@ -61,6 +61,41 @@ padding:18px;
 display:flex;
 justify-content:center;
 align-items:center;
+position:relative;
+overflow:hidden;
+}
+
+.image-loading {
+position:absolute;
+inset:0;
+display:none;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+gap:14px;
+background:rgba(250,250,250,0.88);
+z-index:2;
+border-radius:22px;
+font-size:22px;
+font-weight:800;
+color:#1677ff;
+}
+
+.image-loading.show {
+display:flex;
+}
+
+.spinner {
+width:46px;
+height:46px;
+border:5px solid #d8e4ff;
+border-top-color:#1677ff;
+border-radius:50%;
+animation:spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+to { transform:rotate(360deg); }
 }
 
 .image-area img {
@@ -133,6 +168,12 @@ border-color:#dc2626;
 background:#fef2f2;
 }
 
+.guess-input:disabled {
+background:#f1f5f9;
+cursor:not-allowed;
+color:#94a3b8;
+}
+
 .result {
 margin-top:12px;
 min-height:30px;
@@ -189,6 +230,10 @@ cursor:not-allowed;
 
 <div class="image-area">
 <img id="idiomImage" onclick="showAnswer()" />
+<div id="imageLoading" class="image-loading" aria-live="polite">
+<div class="spinner"></div>
+<div>图片加载中...</div>
+</div>
 </div>
 
 <div class="side-panel">
@@ -264,6 +309,8 @@ let images=[...normalImages];
 let currentIndex=0;
 let isSecretMode=false;
 let isUnlocked=false;
+let isImageLoading=false;
+let imageLoadToken=0;
 
 function getAnswerFromFilename(filename){
 const nameWithoutExt=filename.substring(0,filename.lastIndexOf("."));
@@ -272,6 +319,62 @@ return nameWithoutExt.split("_")[1];
 
 function normalize(text){
 return text.replace(/\s/g,"");
+}
+
+function setLoadingState(isLoading){
+isImageLoading=isLoading;
+
+const loading=document.getElementById("imageLoading");
+const input=document.getElementById("guessInput");
+const img=document.getElementById("idiomImage");
+
+loading.classList.toggle("show",isLoading);
+input.disabled=isLoading;
+img.style.pointerEvents=isLoading?"none":"auto";
+img.style.opacity=isLoading?"0.45":"1";
+
+updateButtonState();
+}
+
+function updateButtonState(){
+const prevBtn=document.getElementById("prevBtn");
+const nextBtn=document.getElementById("nextBtn");
+
+if(isImageLoading){
+prevBtn.disabled=true;
+nextBtn.disabled=true;
+return;
+}
+
+if(isSecretMode){
+prevBtn.disabled=false;
+nextBtn.disabled=!isUnlocked;
+return;
+}
+
+prevBtn.disabled=currentIndex===0;
+nextBtn.disabled=currentIndex===images.length-1;
+}
+
+function loadImage(filename){
+const img=document.getElementById("idiomImage");
+const token=++imageLoadToken;
+
+setLoadingState(true);
+
+img.onload=function(){
+if(token!==imageLoadToken)return;
+setLoadingState(false);
+};
+
+img.onerror=function(){
+if(token!==imageLoadToken)return;
+setLoadingState(false);
+document.getElementById("result").textContent="图片加载失败，请刷新页面重试";
+document.getElementById("result").className="result wrong";
+};
+
+img.src="images/"+filename;
 }
 
 function resetInput(){
@@ -283,6 +386,8 @@ document.getElementById("result").className="result";
 }
 
 function autoCheck(){
+
+if(isImageLoading)return;
 
 const input=document.getElementById("guessInput");
 const value=input.value.trim();
@@ -327,12 +432,13 @@ images=[...normalImages, ...hiddenImages];
 // 把当前位置设置为最后一张普通题，这样玩家点击“下一张”后会进入第 23 张隐藏图
 currentIndex=normalImages.length-1;
 
-document.getElementById("nextBtn").disabled=false;
-document.getElementById("prevBtn").disabled=false;
 document.getElementById("counter").textContent="第 22 张 / 共 24 张";
+updateButtonState();
 }
 
 function showAnswer(){
+
+if(isImageLoading)return;
 
 const filename=isSecretMode?specialImage:images[currentIndex];
 const answer=getAnswerFromFilename(filename);
@@ -350,15 +456,14 @@ function showSecretImage(){
 
 isSecretMode=true;
 
-document.getElementById("idiomImage").src="images/"+specialImage;
+loadImage(specialImage);
 
 resetInput();
 
 document.getElementById("result").textContent="✨";
 document.getElementById("counter").textContent="第 22 张 / 共 24 张";
 
-document.getElementById("prevBtn").disabled=false;
-document.getElementById("nextBtn").disabled=!isUnlocked;
+updateButtonState();
 }
 
 function updatePage(){
@@ -367,7 +472,7 @@ isSecretMode=false;
 
 const filename=images[currentIndex];
 
-document.getElementById("idiomImage").src="images/"+filename;
+loadImage(filename);
 
 resetInput();
 
@@ -383,16 +488,17 @@ if (isUnlocked && currentIndex >= normalImages.length) {
 document.getElementById("counter").textContent =
 `第 ${displayNumber} 张 / 共 ${totalNumber} 张`;
 
-document.getElementById("prevBtn").disabled=currentIndex===0;
-document.getElementById("nextBtn").disabled=currentIndex===images.length-1;
+updateButtonState();
 
 }
 
 function prevImage(){
+if(isImageLoading)return;
 if(currentIndex>0){currentIndex--;updatePage();}
 }
 
 function nextImage(){
+if(isImageLoading)return;
 if(currentIndex<images.length-1){currentIndex++;updatePage();}
 }
 
