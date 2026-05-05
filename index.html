@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>你画我猜 - 隐藏解锁版</title>
+<title>你画我猜 - ai生成版</title>
 
 <style>
 * { box-sizing: border-box; }
@@ -215,6 +215,198 @@ background:#ccc;
 cursor:not-allowed;
 }
 
+
+.browser-actions {
+margin-top:16px;
+}
+
+.browse-btn {
+width:100%;
+background:#0f172a;
+}
+
+.image-browser-overlay {
+position:fixed;
+inset:0;
+display:none;
+justify-content:center;
+align-items:center;
+padding:24px;
+background:rgba(15,23,42,0.58);
+z-index:10;
+}
+
+.image-browser-overlay.show {
+display:flex;
+}
+
+.image-browser {
+width:min(1100px,96vw);
+max-height:88vh;
+background:white;
+border-radius:28px;
+box-shadow:0 18px 48px rgba(0,0,0,0.22);
+padding:24px;
+display:flex;
+flex-direction:column;
+gap:18px;
+}
+
+.browser-header {
+display:flex;
+justify-content:space-between;
+align-items:center;
+gap:16px;
+}
+
+.browser-title {
+font-size:26px;
+font-weight:800;
+color:#0f172a;
+}
+
+.browser-subtitle {
+margin-top:4px;
+font-size:14px;
+color:#64748b;
+}
+
+.close-browser-btn {
+background:#e2e8f0;
+color:#0f172a;
+padding:10px 16px;
+font-size:16px;
+}
+
+.thumb-grid {
+overflow:auto;
+padding:4px 4px 10px;
+display:grid;
+grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+gap:14px;
+}
+
+.thumb-card {
+position:relative;
+border:2px solid #e2e8f0;
+border-radius:18px;
+background:#f8fafc;
+padding:8px;
+cursor:pointer;
+transition:transform 0.15s ease,border-color 0.15s ease,box-shadow 0.15s ease;
+}
+
+.thumb-card:hover {
+transform:translateY(-2px);
+border-color:#93c5fd;
+box-shadow:0 8px 20px rgba(15,23,42,0.12);
+}
+
+.thumb-card.active {
+border-color:#1677ff;
+box-shadow:0 0 0 4px rgba(22,119,255,0.12);
+}
+
+.thumb-card.locked {
+opacity:0.58;
+cursor:not-allowed;
+}
+
+.thumb-card.locked:hover {
+transform:none;
+box-shadow:none;
+border-color:#e2e8f0;
+}
+
+.thumb-card.loading {
+pointer-events:none;
+opacity:0.7;
+}
+
+.thumb-image-wrap {
+position:relative;
+width:100%;
+aspect-ratio:1/1;
+border-radius:12px;
+overflow:hidden;
+background:#eef2ff;
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+.thumb-image-wrap img {
+width:100%;
+height:100%;
+object-fit:cover;
+display:block;
+}
+
+.thumb-placeholder {
+position:absolute;
+inset:0;
+display:flex;
+justify-content:center;
+align-items:center;
+font-size:13px;
+font-weight:700;
+color:#64748b;
+background:#eef2ff;
+}
+
+.thumb-card.loaded .thumb-placeholder {
+display:none;
+}
+
+.thumb-info {
+margin-top:8px;
+display:flex;
+justify-content:space-between;
+gap:8px;
+align-items:center;
+font-size:14px;
+font-weight:700;
+color:#0f172a;
+}
+
+.thumb-answer {
+overflow:hidden;
+text-overflow:ellipsis;
+white-space:nowrap;
+}
+
+.thumb-badge {
+flex:none;
+font-size:12px;
+padding:3px 7px;
+border-radius:999px;
+background:#eaf2ff;
+color:#1677ff;
+}
+
+
+.thumb-card.locked .thumb-image-wrap {
+background:linear-gradient(135deg,#e2e8f0,#f8fafc);
+}
+
+.thumb-card.locked .thumb-placeholder {
+background:linear-gradient(135deg,#e2e8f0,#f8fafc);
+color:#475569;
+}
+
+.thumb-card.locked .thumb-answer {
+color:#64748b;
+}
+
+.thumb-card.locked .thumb-badge {
+background:#e2e8f0;
+color:#64748b;
+}
+
+body.browser-open {
+overflow:hidden;
+}
+
 @media (max-width:850px){
 .main-card{grid-template-columns:1fr;}
 }
@@ -247,12 +439,16 @@ cursor:not-allowed;
 <div class="guess-area">
 <input id="guessInput" class="guess-input"
 placeholder="请输入4字成语"
-maxlength="4"
+maxlength="5"
 oninput="autoCheck()" />
 <div id="result" class="result"></div>
 </div>
 
 <div class="tip">提示：图片可点击公布答案</div>
+
+<div class="browser-actions">
+<button id="browseBtn" class="browse-btn" onclick="openImageBrowser()">快速浏览图片</button>
+</div>
 
 </div>
 
@@ -265,13 +461,27 @@ oninput="autoCheck()" />
 </div>
 </div>
 
+
+<div id="imageBrowserOverlay" class="image-browser-overlay" onclick="closeImageBrowser(event)">
+<div class="image-browser" onclick="event.stopPropagation()">
+<div class="browser-header">
+<div>
+<div class="browser-title">快速浏览图片</div>
+<div class="browser-subtitle">缩略图会懒加载；点击任意可用图片即可跳转</div>
+</div>
+<button class="close-browser-btn" onclick="closeImageBrowser()">关闭</button>
+</div>
+<div id="thumbGrid" class="thumb-grid"></div>
+</div>
+</div>
+
 <script>
 
 /*
 第 1-21 张是默认可见题目。
-点击右上角隐藏 ♡ 后，会出现第 22 张彩蛋题：image22_一路相伴.png。
-答对“一路相伴”后，解锁第 23、24 张。
-最终流程会以第 24 张结尾。
+第 22-24 张统一放在 hiddenImages 中管理。
+点击右上角隐藏 ♡ 或输入“13只甜潼”会进入第 22 张彩蛋题。
+答对“一路相伴”后，解锁第 22、23、24 张隐藏图片。
 */
 
 const normalImages=[
@@ -299,18 +509,22 @@ const normalImages=[
 ];
 
 const hiddenImages=[
+"image22_一路相伴.png",
 "image23_光芒万丈.png",
 "image24_星途璀璨.png"
 ];
 
-const specialImage="image22_一路相伴.png";
+const allImages=[...normalImages,...hiddenImages];
+const FIRST_HIDDEN_INDEX=normalImages.length;
+const SECRET_CODE="13只甜潼";
 
-let images=[...normalImages];
 let currentIndex=0;
-let isSecretMode=false;
 let isUnlocked=false;
 let isImageLoading=false;
 let imageLoadToken=0;
+let browserBuilt=false;
+let thumbObserver=null;
+const useThumbs=true;
 
 function getAnswerFromFilename(filename){
 const nameWithoutExt=filename.substring(0,filename.lastIndexOf("."));
@@ -321,17 +535,31 @@ function normalize(text){
 return text.replace(/\s/g,"");
 }
 
+function isHiddenIndex(index){
+return index>=FIRST_HIDDEN_INDEX;
+}
+
+function canShowIndex(index){
+if(index<normalImages.length)return true;
+if(isUnlocked)return true;
+// 未正式解锁前，只允许通过隐藏入口临时查看第 22 张。
+return index===FIRST_HIDDEN_INDEX;
+}
+
 function setLoadingState(isLoading){
 isImageLoading=isLoading;
 
 const loading=document.getElementById("imageLoading");
 const input=document.getElementById("guessInput");
 const img=document.getElementById("idiomImage");
+const browseBtn=document.getElementById("browseBtn");
 
 loading.classList.toggle("show",isLoading);
 input.disabled=isLoading;
 img.style.pointerEvents=isLoading?"none":"auto";
 img.style.opacity=isLoading?"0.45":"1";
+browseBtn.disabled=isLoading;
+setBrowserCardsDisabled(isLoading);
 
 updateButtonState();
 }
@@ -346,14 +574,137 @@ nextBtn.disabled=true;
 return;
 }
 
-if(isSecretMode){
-prevBtn.disabled=false;
-nextBtn.disabled=!isUnlocked;
-return;
+prevBtn.disabled=currentIndex===0;
+
+if(isUnlocked){
+nextBtn.disabled=currentIndex===allImages.length-1;
+}else{
+// 未解锁时：普通题只能到第 21 张；第 22 张彩蛋题不能继续下一张。
+nextBtn.disabled=currentIndex>=normalImages.length-1;
+}
 }
 
-prevBtn.disabled=currentIndex===0;
-nextBtn.disabled=currentIndex===images.length-1;
+function getPlayableItems(){
+return allImages.map((filename,index)=>({
+filename,
+index,
+isHidden:isHiddenIndex(index),
+locked:!isUnlocked && isHiddenIndex(index),
+displayNumber:index+1
+}));
+}
+
+function getThumbSrc(filename){
+if(!useThumbs)return "images/"+filename;
+const dotIndex=filename.lastIndexOf(".");
+const baseName=dotIndex>=0?filename.substring(0,dotIndex):filename;
+return "thumbs/"+baseName+".webp";
+}
+
+function fallbackToOriginal(img,filename){
+if(img.dataset.fallbackDone==="true")return;
+img.dataset.fallbackDone="true";
+img.src="images/"+filename;
+}
+
+function preloadNearbyImages(centerIndex){
+const preloadIndexes=[centerIndex-1,centerIndex+1,centerIndex+2]
+.filter(index=>index>=0 && index<allImages.length && canShowIndex(index));
+
+preloadIndexes.forEach(index=>{
+const preloadImg=new Image();
+preloadImg.src="images/"+allImages[index];
+});
+}
+
+function buildImageBrowser(){
+const grid=document.getElementById("thumbGrid");
+grid.innerHTML="";
+
+const items=getPlayableItems();
+
+if(thumbObserver){
+thumbObserver.disconnect();
+}
+
+thumbObserver=new IntersectionObserver((entries)=>{
+entries.forEach(entry=>{
+if(!entry.isIntersecting)return;
+const img=entry.target;
+if(img.dataset.loadedSrc)return;
+img.dataset.loadedSrc="true";
+img.src=img.dataset.src;
+thumbObserver.unobserve(img);
+});
+},{root:grid,rootMargin:"180px"});
+
+items.forEach(item=>{
+const card=document.createElement("button");
+card.type="button";
+card.className="thumb-card";
+card.dataset.filename=item.filename;
+card.dataset.displayNumber=String(item.displayNumber);
+
+if(item.locked)card.classList.add("locked");
+if(item.index===currentIndex)card.classList.add("active");
+
+card.innerHTML=`
+<div class="thumb-image-wrap">
+<div class="thumb-placeholder">${item.locked?"隐藏图片":"加载缩略图"}</div>
+${item.locked?"":`<img alt="第 ${item.displayNumber} 张" loading="lazy" decoding="async" data-src="${getThumbSrc(item.filename)}" />`}
+</div>
+<div class="thumb-info">
+<span class="thumb-answer">${item.locked?"隐藏图片":getAnswerFromFilename(item.filename)}</span>
+<span class="thumb-badge">${item.displayNumber}</span>
+</div>
+`;
+
+const img=card.querySelector("img");
+if(img){
+img.onload=()=>card.classList.add("loaded");
+img.onerror=()=>fallbackToOriginal(img,item.filename);
+thumbObserver.observe(img);
+}
+
+card.disabled=item.locked;
+card.onclick=()=>selectBrowserImage(item);
+grid.appendChild(card);
+});
+
+browserBuilt=true;
+}
+
+function refreshImageBrowser(){
+if(!browserBuilt)return;
+buildImageBrowser();
+}
+
+function setBrowserCardsDisabled(disabled){
+const cards=document.querySelectorAll(".thumb-card");
+cards.forEach(card=>{
+card.disabled=disabled || card.classList.contains("locked");
+card.classList.toggle("loading",disabled);
+});
+}
+
+function openImageBrowser(){
+if(isImageLoading)return;
+buildImageBrowser();
+document.getElementById("imageBrowserOverlay").classList.add("show");
+document.body.classList.add("browser-open");
+}
+
+function closeImageBrowser(event){
+if(event && event.target.id!=="imageBrowserOverlay")return;
+document.getElementById("imageBrowserOverlay").classList.remove("show");
+document.body.classList.remove("browser-open");
+}
+
+function selectBrowserImage(item){
+if(isImageLoading || item.locked)return;
+closeImageBrowser();
+currentIndex=item.index;
+updatePage();
 }
 
 function loadImage(filename){
@@ -365,6 +716,8 @@ setLoadingState(true);
 img.onload=function(){
 if(token!==imageLoadToken)return;
 setLoadingState(false);
+preloadNearbyImages(currentIndex);
+refreshImageBrowser();
 };
 
 img.onerror=function(){
@@ -385,25 +738,39 @@ document.getElementById("result").textContent="";
 document.getElementById("result").className="result";
 }
 
-function autoCheck(){
+function revealFirstHiddenImage(){
+currentIndex=FIRST_HIDDEN_INDEX;
+updatePage();
+}
 
+function autoCheck(){
 if(isImageLoading)return;
 
 const input=document.getElementById("guessInput");
 const value=input.value.trim();
+const normalizedValue=normalize(value);
+
+if(normalizedValue===normalize(SECRET_CODE)){
+revealFirstHiddenImage();
+const result=document.getElementById("result");
+result.textContent="隐藏图片入口已开启！";
+result.className="result correct";
+input.classList.remove("wrong");
+input.classList.add("correct");
+return;
+}
 
 if(value.length<4)return;
 
-const filename=isSecretMode?specialImage:images[currentIndex];
+const filename=allImages[currentIndex];
 const correct=getAnswerFromFilename(filename);
 const result=document.getElementById("result");
 
-if(normalize(value)===normalize(correct)){
-
+if(normalizedValue===normalize(correct)){
 input.classList.remove("wrong");
 input.classList.add("correct");
 
-if(isSecretMode && !isUnlocked){
+if(currentIndex===FIRST_HIDDEN_INDEX && !isUnlocked){
 unlockHiddenImages();
 result.textContent="恭喜答对，2张隐藏图片解锁！";
 }else{
@@ -411,96 +778,82 @@ result.textContent="答对了！";
 }
 
 result.className="result correct";
-
 }else{
-
 result.textContent="不对哦";
 result.className="result wrong";
-
 input.classList.remove("correct");
 input.classList.add("wrong");
-
 }
-
 }
 
 function unlockHiddenImages(){
+if(isUnlocked)return;
 isUnlocked=true;
-images=[...normalImages, ...hiddenImages];
-
-// 保持在彩蛋图片，不自动跳转
-// 把当前位置设置为最后一张普通题，这样玩家点击“下一张”后会进入第 23 张隐藏图
-currentIndex=normalImages.length-1;
-
-document.getElementById("counter").textContent="第 22 张 / 共 24 张";
+currentIndex=FIRST_HIDDEN_INDEX;
+updateCounter();
 updateButtonState();
+refreshImageBrowser();
 }
 
 function showAnswer(){
-
 if(isImageLoading)return;
 
-const filename=isSecretMode?specialImage:images[currentIndex];
+const filename=allImages[currentIndex];
 const answer=getAnswerFromFilename(filename);
 
-document.getElementById("guessInput").value=answer;
-document.getElementById("guessInput").classList.remove("wrong");
-document.getElementById("guessInput").classList.add("correct");
+const input=document.getElementById("guessInput");
+input.value=answer;
+input.classList.remove("wrong");
+input.classList.add("correct");
 
-document.getElementById("result").textContent="正确答案";
-document.getElementById("result").className="result correct";
-
+const result=document.getElementById("result");
+result.textContent="正确答案";
+result.className="result correct";
 }
 
 function showSecretImage(){
+if(isImageLoading)return;
+revealFirstHiddenImage();
+}
 
-isSecretMode=true;
-
-loadImage(specialImage);
-
-resetInput();
-
-document.getElementById("result").textContent="✨";
-document.getElementById("counter").textContent="第 22 张 / 共 24 张";
-
-updateButtonState();
+function updateCounter(){
+const totalNumber=isUnlocked?allImages.length:normalImages.length;
+const displayNumber=currentIndex+1;
+document.getElementById("counter").textContent=`第 ${displayNumber} 张 / 共 ${totalNumber} 张`;
 }
 
 function updatePage(){
-
-isSecretMode=false;
-
-const filename=images[currentIndex];
-
-loadImage(filename);
-
-resetInput();
-
-let displayNumber = currentIndex + 1;
-let totalNumber = isUnlocked ? 24 : 21;
-
-// 解锁后，images 数组中没有把第 22 张彩蛋题放进去，
-// 所以第 23、24 张隐藏图需要显示真实编号：23、24
-if (isUnlocked && currentIndex >= normalImages.length) {
-  displayNumber = currentIndex + 2;
+if(!canShowIndex(currentIndex)){
+currentIndex=Math.min(currentIndex,normalImages.length-1);
 }
 
-document.getElementById("counter").textContent =
-`第 ${displayNumber} 张 / 共 ${totalNumber} 张`;
-
+const filename=allImages[currentIndex];
+loadImage(filename);
+resetInput();
+updateCounter();
 updateButtonState();
-
 }
 
 function prevImage(){
 if(isImageLoading)return;
-if(currentIndex>0){currentIndex--;updatePage();}
+if(currentIndex>0){
+currentIndex--;
+updatePage();
+}
 }
 
 function nextImage(){
 if(isImageLoading)return;
-if(currentIndex<images.length-1){currentIndex++;updatePage();}
+if(!isUnlocked && currentIndex>=normalImages.length-1)return;
+if(currentIndex<allImages.length-1){
+currentIndex++;
+updatePage();
 }
+}
+
+document.addEventListener("keydown",function(event){
+if(event.key==="Escape")closeImageBrowser();
+});
 
 updatePage();
 
