@@ -479,9 +479,9 @@ oninput="autoCheck()" />
 
 /*
 第 1-21 张是默认可见题目。
-第 22-24 张统一放在 hiddenImages 中管理。
-点击右上角隐藏 ♡ 或输入“13只甜潼”会进入第 22 张彩蛋题。
-答对“一路相伴”后，解锁第 22、23、24 张隐藏图片。
+特殊图片统一放在 specialImages 中管理，并永远显示在普通图片之后。
+点击右上角隐藏 ♡ 或输入“13只甜潼”会进入第 1 张特殊彩蛋题。
+答对“一路相伴”后，解锁全部特殊图片。
 */
 
 const normalImages=[
@@ -505,16 +505,19 @@ const normalImages=[
 "image18_左右为难.png",
 "image19_大展宏图.png",
 "image20_财源广进.png",
-"image21_鸿运当头.png"
+"image21_鸿运当头.png",
+"image22_扶摇直上.png",
+"image23_两全其美.png",
+"image24_九牛一毛.png",
 ];
 
-const hiddenImages=[
-"image22_一路相伴.png",
-"image23_光芒万丈.png",
-"image24_星途璀璨.png"
+const specialImages=[
+"specialImage1_一路相伴.png",
+"specialImage2_光芒万丈.png",
+"specialImage3_星途璀璨.png"
 ];
 
-const allImages=[...normalImages,...hiddenImages];
+const allImages=[...normalImages,...specialImages];
 const FIRST_HIDDEN_INDEX=normalImages.length;
 const SECRET_CODE="13只甜潼";
 
@@ -542,7 +545,7 @@ return index>=FIRST_HIDDEN_INDEX;
 function canShowIndex(index){
 if(index<normalImages.length)return true;
 if(isUnlocked)return true;
-// 未正式解锁前，只允许通过隐藏入口临时查看第 22 张。
+// 未正式解锁前，只允许通过隐藏入口临时查看第 1 张特殊图片。
 return index===FIRST_HIDDEN_INDEX;
 }
 
@@ -579,7 +582,7 @@ prevBtn.disabled=currentIndex===0;
 if(isUnlocked){
 nextBtn.disabled=currentIndex===allImages.length-1;
 }else{
-// 未解锁时：普通题只能到第 21 张；第 22 张彩蛋题不能继续下一张。
+// 未解锁时：普通题只能到第 21 张；第 1 张特殊彩蛋题不能继续下一张。
 nextBtn.disabled=currentIndex>=normalImages.length-1;
 }
 }
@@ -772,7 +775,7 @@ input.classList.add("correct");
 
 if(currentIndex===FIRST_HIDDEN_INDEX && !isUnlocked){
 unlockHiddenImages();
-result.textContent="恭喜答对，2张隐藏图片解锁！";
+result.textContent="恭喜答对，特殊图片已全部解锁！";
 }else{
 result.textContent="答对了！";
 }
